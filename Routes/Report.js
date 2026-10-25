@@ -58,54 +58,51 @@ router.get('/getreport', authTokenHandler, async (req, res) => {
         }
     });
 
-    // get today's weight
-    let weight = user.weight[user.weight.length - 1].weight;
-    // get today's height
-    let height = user.height[user.height.length - 1].height;
+    // get today's weight safely
+    let weight = (user.weight && user.weight.length > 0) ? user.weight[user.weight.length - 1].weight : 70;
+    // get today's height safely
+    let height = (user.height && user.height.length > 0) ? user.height[user.height.length - 1].height : 175;
 
-    // get this week's workout
+    // get this week's workout safely
     let workout = 0;
-    user.workouts.forEach((entry) => {
-        if (entry.date.getDate() >= today.getDate() - 7 && entry.date.getMonth() === today.getMonth() && entry.date.getFullYear() === today.getFullYear()) {
-            workout += 1;
-        }
-    });
-
-
+    if (user.workouts && user.workouts.length > 0) {
+        user.workouts.forEach((entry) => {
+            if (entry.date) {
+                const entryDate = new Date(entry.date);
+                const diffTime = Math.abs(today.getTime() - entryDate.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays <= 7) {
+                    workout += 1;
+                }
+            }
+        });
+    }
 
     // get goal calorieIntake
+    let maxCalorieIntake = 2000;
+    let heightInCm = parseFloat(height);
+    let weightInKg = parseFloat(weight);
+    let age = user.dob ? (new Date().getFullYear() - new Date(user.dob).getFullYear()) : 25;
+    if (isNaN(age) || age <= 0) age = 25;
 
-    let maxCalorieIntake = 0;
-    let heightInCm = parseFloat(user.height[user.height.length - 1].height);
-    let weightInKg = parseFloat(user.weight[user.weight.length - 1].weight);
-    let age = new Date().getFullYear() - new Date(user.dob).getFullYear();
     let BMR = 0;
-    let gender = user.gender;
-    if (gender == 'male') {
-        BMR = 88.362 + (13.397 * weightInKg) + (4.799 * heightInCm) - (5.677 * age)
-
-    }
-    else if (gender == 'female') {
-        BMR = 447.593 + (9.247 * weightInKg) + (3.098 * heightInCm) - (4.330 * age)
-
-    }
-    else {
-        BMR = 447.593 + (9.247 * weightInKg) + (3.098 * heightInCm) - (4.330 * age)
-    }
-    if (user.goal == 'weightLoss') {
-        maxCalorieIntake = BMR - 500;
-    }
-    else if (user.goal == 'weightGain') {
-        maxCalorieIntake = BMR + 500;
-    }
-    else {
-        maxCalorieIntake = BMR;
+    let gender = user.gender ? user.gender.toLowerCase() : 'male';
+    if (gender === 'male') {
+        BMR = 88.362 + (13.397 * weightInKg) + (4.799 * heightInCm) - (5.677 * age);
+    } else {
+        BMR = 447.593 + (9.247 * weightInKg) + (3.098 * heightInCm) - (4.330 * age);
     }
 
-
+    if (user.goal === 'weightLoss') {
+        maxCalorieIntake = Math.round(BMR - 500);
+    } else if (user.goal === 'weightGain') {
+        maxCalorieIntake = Math.round(BMR + 500);
+    } else {
+        maxCalorieIntake = Math.round(BMR);
+    }
 
     // get goal weight
-    let goalWeight = 22 * ((user.height[user.height.length - 1].height / 100) ** 2);
+    let goalWeight = Math.round(22 * ((heightInCm / 100) ** 2));
 
     // get goal workout
     let goalWorkout = 0;

@@ -13,14 +13,15 @@ function checkAuth(req, res, next) {
     jwt.verify(authToken, process.env.JWT_SECRET_KEY, (err, decoded) => {
         if (err) {
             // Auth token has expired, check the refresh token
-            jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (refreshErr, refreshDecoded) => {
+            const refreshSecret = process.env.JWT_REFRESH_SECRET_KEY || process.env.REFRESH_TOKEN_SECRET;
+            jwt.verify(refreshToken, refreshSecret, (refreshErr, refreshDecoded) => {
                 if (refreshErr) {
                     // Both tokens are invalid, send an error message and prompt for login
                     return res.status(401).json({ message: 'Authentication failed: Both tokens are invalid', ok: false });
                 } else {
                     // Generate new auth and refresh tokens
-                    const newAuthToken = jwt.sign({ userId: refreshDecoded.userId }, process.env.JWT_SECRET_KEY, { expiresIn: '10m' });
-                    const newRefreshToken = jwt.sign({ userId: refreshDecoded.userId }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '10d' });
+                    const newAuthToken = jwt.sign({ userId: refreshDecoded.userId }, process.env.JWT_SECRET_KEY, { expiresIn: '50m' });
+                    const newRefreshToken = jwt.sign({ userId: refreshDecoded.userId }, refreshSecret, { expiresIn: '10d' });
 
                     // Set the new tokens as cookies in the response
                     res.cookie('authToken', newAuthToken, { httpOnly: true });

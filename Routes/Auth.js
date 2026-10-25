@@ -83,24 +83,42 @@ router.post('/login', async (req, res, next) => {
         const authToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '50m' });
         const refreshToken = jwt.sign({ userId: user._id }, process.env.JWT_REFRESH_SECRET_KEY, { expiresIn: '100m' });
 
-        res.cookie('authToken', authToken, { httpOnly: true });
-        res.cookie('refreshToken', refreshToken, { httpOnly: true });
+        const cookieOptions = {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+        };
+
+        res.cookie('authToken', authToken, cookieOptions);
+        res.cookie('refreshToken', refreshToken, cookieOptions);
         res.status(200).json(createResponse(true, 'Login successful', {
             authToken,
-            refreshToken
+            refreshToken,
+            user: {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                goal: user.goal,
+                gender: user.gender,
+            }
         }));
     }
     catch (err) {
         next(err);
     }
 })
+router.post('/logout', (req, res) => {
+    res.clearCookie('authToken');
+    res.clearCookie('refreshToken');
+    res.json(createResponse(true, 'Logged out successfully'));
+});
 router.post('/sendotp', async (req, res) => {
     try {
         const { email } = req.body;
         const otp = Math.floor(100000 + Math.random() * 900000);
 
         const mailOptions = {
-            from: 'udayshak8962@gmai.com',
+            from: 'udayshak8962@gmail.com',
             to: email,
             subject: 'OTP for verification',
             text: `Your OTP is ${otp}`
@@ -120,11 +138,52 @@ router.post('/sendotp', async (req, res) => {
     }
 })
 router.post('/checklogin', authTokenHandler, async (req, res, next) => {
-    res.json({
-        ok: true,
-        message: 'User authenticated successfully'
-    })
-})
+    try {
+        const user = await User.findById(req.userId).select('-password');
+        if (!user) {
+            return res.status(404).json(createResponse(false, 'User not found'));
+        }
+        res.json({
+            ok: true,
+            message: 'User authenticated successfully',
+            user,
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.get('/getuser', authTokenHandler, async (req, res, next) => {
+    try {
+        const user = await User.findById(req.userId).select('-password');
+        if (!user) {
+            return res.status(404).json(createResponse(false, 'User not found'));
+        }
+        res.json(createResponse(true, 'User profile fetched', user));
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.put('/updateuser', authTokenHandler, async (req, res, next) => {
+    try {
+        const { name, goal, activityLevel, gender, dob } = req.body;
+        const user = await User.findById(req.userId);
+        if (!user) {
+            return res.status(404).json(createResponse(false, 'User not found'));
+        }
+        if (name) user.name = name;
+        if (goal) user.goal = goal;
+        if (activityLevel) user.activityLevel = activityLevel;
+        if (gender) user.gender = gender;
+        if (dob) user.dob = dob;
+
+        await user.save();
+        res.json(createResponse(true, 'Profile updated successfully', user));
+    } catch (err) {
+        next(err);
+    }
+});
 
 router.use(errorHandler)
 
