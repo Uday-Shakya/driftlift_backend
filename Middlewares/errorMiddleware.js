@@ -1,14 +1,14 @@
-function errorHandler(statusCode, err, req, res, next) {
-    console.error(err.stack);
+function errorHandler(err, req, res, next) {
+    console.error(err.stack || err);
 
     if (res.headersSent) {
         return next(err);
     }
     
-    console.log("ERROR MIDDLEWARE CALLED")
-    res.status(statusCode || 500).json({
-        ok: false, // Set the "ok" field to false for errors
-        message: err.message,
+    const statusCode = err.statusCode || (res.statusCode && res.statusCode !== 200 ? res.statusCode : 500);
+    res.status(statusCode).json({
+        ok: false,
+        message: err.message || 'Internal Server Error',
     });
 }
 

@@ -18,17 +18,23 @@ const waterTrackRoutes = require('./Routes/WaterTrack');
 const workoutTrackRoutes = require('./Routes/WorkoutTrack');
 const workoutRoutes = require('./Routes/WorkoutPlans');
 const reportRoutes = require('./Routes/Report'); 
+const errorHandler = require('./Middlewares/errorMiddleware');
 require('dotenv').config();
 require('./db')
 
 
 app.use(bodyParser.json());
-const allowedOrigins = ['http://localhost:3000']; // Add more origins as needed
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3001'
+];
 
 app.use(
     cors({
         origin: function (origin, callback) {
-            if (!origin || allowedOrigins.includes(origin)) {
+            if (!origin || allowedOrigins.includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
                 callback(null, true);
             } else {
                 callback(new Error('Not allowed by CORS'));
@@ -54,6 +60,8 @@ app.use('/report', reportRoutes);
 app.get('/', (req, res) => {
     res.json({ message: 'The API is working' });
 });
+
+app.use(errorHandler);
 
 
 app.listen(PORT, () => {
