@@ -51,7 +51,7 @@ router.post('/getstepsbydate', authTokenHandler, async (req, res) => {
 
 
 
-router.post('/getstepsbylimit', authTokenHandler, async (req, res) => {
+router.post(['/getstepsbylimit', '/getstepbylimit'], authTokenHandler, async (req, res) => {
     const { limit } = req.body;
 
     const userId = req.userId;

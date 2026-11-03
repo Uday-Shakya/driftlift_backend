@@ -52,7 +52,7 @@ router.post('/getworkoutsbydate', authTokenHandler, async (req, res) => {
 
 
 // has a bug
-router.post('/getworkoutsbylimit', authTokenHandler, async (req, res) => {
+router.post(['/getworkoutsbylimit', '/getworkoutbylimit'], authTokenHandler, async (req, res) => {
     const { limit } = req.body;
 
     const userId = req.userId;

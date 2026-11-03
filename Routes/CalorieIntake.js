@@ -22,25 +22,39 @@ router.get('/test', authTokenHandler, async (req, res) => {
 });
 
 router.post('/addcalorieintake', authTokenHandler, async (req, res) => {
-    const { item, date, quantity, quantitytype } = req.body;
-    if (!item || !date || !quantity || !quantitytype) {
-        return res.status(400).json(createResponse(false, 'Please provide all the details'));
+    const { item, date, quantity = 1, quantitytype = 'g', calorieIntake } = req.body;
+    if (!item || !date) {
+        return res.status(400).json(createResponse(false, 'Please provide item and date'));
     }
-    let qtyingrams = 0;
-    if (quantitytype === 'g') {
-        qtyingrams = quantity;
+
+    // Direct intake provided (e.g. from quick log)
+    if (calorieIntake !== undefined && calorieIntake !== null && !isNaN(Number(calorieIntake)) && Number(calorieIntake) > 0) {
+        try {
+            const userId = req.userId;
+            const user = await User.findById({ _id: userId });
+            if (!user) {
+                return res.status(404).json(createResponse(false, 'User not found'));
+            }
+            user.calorieIntake.push({
+                item,
+                date: new Date(date),
+                quantity: Number(quantity) || 1,
+                quantitytype: quantitytype || 'serving',
+                calorieIntake: parseInt(calorieIntake)
+            });
+            await user.save();
+            return res.json(createResponse(true, 'Calorie intake added successfully'));
+        } catch (err) {
+            return res.status(500).json(createResponse(false, err.message));
+        }
     }
-    else if (quantitytype === 'kg') {
-        qtyingrams = quantity * 1000;
-    }
-    else if (quantitytype === 'ml') {
-        qtyingrams = quantity;
-    }
-    else if (quantitytype === 'l') {
-        qtyingrams = quantity * 1000;
-    }
-    else {
-        return res.status(400).json(createResponse(false, 'Invalid quantity type'));
+
+    let qtyingrams = Number(quantity) || 100;
+    const qType = (quantitytype || 'g').toLowerCase();
+    if (qType === 'g' || qType === 'ml' || qType === 'serving' || qType === 'unit') {
+        qtyingrams = Number(quantity) || 100;
+    } else if (qType === 'kg' || qType === 'l') {
+        qtyingrams = (Number(quantity) || 1) * 1000;
     }
 
     var query = item;
