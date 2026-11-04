@@ -31,18 +31,20 @@ require('./db');
 
 app.use(bodyParser.json());
 
-// Permissive dynamic CORS with credentials support for localhost, Vercel, and Render
-app.use(
-    cors({
-        origin: function (origin, callback) {
-            callback(null, true);
-        },
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'x-refresh-token'],
-        exposedHeaders: ['Set-Cookie', 'x-new-authtoken']
-    })
-);
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Allow any requesting origin dynamically (Vercel, localhost, Render, preview URLs, mobile)
+        callback(null, origin || true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'x-refresh-token', 'Accept'],
+    exposedHeaders: ['Set-Cookie', 'x-new-authtoken'],
+    optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(cookieParser());
 
