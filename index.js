@@ -4,6 +4,9 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
+// Trust Render / cloud reverse proxy for HTTPS detection
+app.set('trust proxy', 1);
+
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const bodyParser = require('body-parser');
@@ -27,25 +30,20 @@ const errorHandler = require('./Middlewares/errorMiddleware');
 require('./db');
 
 app.use(bodyParser.json());
-const allowedOrigins = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3001'
-];
 
+// Permissive dynamic CORS with credentials support for localhost, Vercel, and Render
 app.use(
     cors({
         origin: function (origin, callback) {
-            if (!origin || allowedOrigins.includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error('Not allowed by CORS'));
-            }
+            callback(null, true);
         },
-        credentials: true, // Allow credentials
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'x-refresh-token'],
+        exposedHeaders: ['Set-Cookie', 'x-new-authtoken']
     })
 );
+
 app.use(cookieParser());
 
 app.use('/auth', authRoutes);

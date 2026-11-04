@@ -1,7 +1,7 @@
 'use client';
 const express = require('express');
 const router = express.Router();
-const User = require('../Models/UserSchema')
+const User = require('../Models/UserSchema');
 const errorHandler = require('../Middlewares/errorMiddleware');
 const authTokenHandler = require('../Middlewares/checkAuthToken');
 const jwt = require('jsonwebtoken');
@@ -14,12 +14,14 @@ const transporter = nodemailer.createTransport({
         user: 'udayshak8962@gmail.com',
         pass: 'hufmdsijhxwpebpj'
     }
-})
+});
+
 router.get('/test', async (req, res) => {
     res.json({
         message: "Auth api is working"
-    })
-})
+    });
+});
+
 function createResponse(ok, message, data) {
     return {
         ok,
@@ -27,8 +29,19 @@ function createResponse(ok, message, data) {
         data,
     };
 }
+
+// Helper to determine if the request is over HTTPS / on cloud hosting
+function getCookieOptions(req) {
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production' || Boolean(req.get('host') && !req.get('host').includes('localhost'));
+    return {
+        httpOnly: true,
+        secure: isHttps,
+        sameSite: isHttps ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    };
+}
+
 router.post('/register', async (req, res, next) => {
-    console.log(req.body);
     try {
         const { name, email, password, weightInKg, heightInCm, gender, dob, goal, activityLevel } = req.body;
         const existingUser = await User.findOne({ email: email });
@@ -59,15 +72,14 @@ router.post('/register', async (req, res, next) => {
             goal,
             activityLevel
         });
-        await newUser.save(); // Await the save operation
+        await newUser.save();
 
         res.status(201).json(createResponse(true, 'User registered successfully'));
-
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
-})
+});
+
 router.post('/login', async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -83,11 +95,7 @@ router.post('/login', async (req, res, next) => {
         const authToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '50m' });
         const refreshToken = jwt.sign({ userId: user._id }, process.env.JWT_REFRESH_SECRET_KEY, { expiresIn: '100m' });
 
-        const cookieOptions = {
-            httpOnly: true,
-            sameSite: 'lax',
-            secure: process.env.NODE_ENV === 'production',
-        };
+        const cookieOptions = getCookieOptions(req);
 
         res.cookie('authToken', authToken, cookieOptions);
         res.cookie('refreshToken', refreshToken, cookieOptions);
@@ -102,16 +110,18 @@ router.post('/login', async (req, res, next) => {
                 gender: user.gender,
             }
         }));
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
-})
+});
+
 router.post('/logout', (req, res) => {
-    res.clearCookie('authToken');
-    res.clearCookie('refreshToken');
+    const cookieOptions = getCookieOptions(req);
+    res.clearCookie('authToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
     res.json(createResponse(true, 'Logged out successfully'));
 });
+
 router.post('/sendotp', async (req, res) => {
     try {
         const { email } = req.body;
@@ -122,9 +132,9 @@ router.post('/sendotp', async (req, res) => {
             to: email,
             subject: 'OTP for verification',
             text: `Your OTP is ${otp}`
-        }
+        };
 
-        transporter.sendMail(mailOptions, async (err, info) => {
+        transporter.sendMail(mailOptions, async (err) => {
             if (err) {
                 console.log(err);
                 res.status(500).json(createResponse(false, err.message));
@@ -132,11 +142,11 @@ router.post('/sendotp', async (req, res) => {
                 res.json(createResponse(true, 'OTP sent successfully', { otp }));
             }
         });
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
-})
+});
+
 router.post('/checklogin', authTokenHandler, async (req, res, next) => {
     try {
         const user = await User.findById(req.userId).select('-password');
@@ -185,6 +195,6 @@ router.put('/updateuser', authTokenHandler, async (req, res, next) => {
     }
 });
 
-router.use(errorHandler)
+router.use(errorHandler);
 
 module.exports = router;
