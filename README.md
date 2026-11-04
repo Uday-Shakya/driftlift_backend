@@ -68,6 +68,15 @@ The **DriftLift Backend** powers data persistence, identity management, and biom
 - **Cloudinary + Sharp**: Image optimization and cloud avatar/workout uploads.
 - **Automated Reports**: Aggregated health summary generation.
 
+### ⚡ 5. Real-Time Multiplayer Squad Rooms (`ws://` & `/squad`)
+- **Native RFC 6455 WebSocket Server** (`ws://localhost:8000/squad-ws`):
+  - In-memory squad room session state and member tracking.
+  - Sub-10ms synchronized rest countdown intervals with automatic room broadcast.
+  - Live set telemetry (`LOG_SET`), member status transitions (`LIFTING`, `RESTING`, `HYDRATING`), and hype reaction emoji bursts (`🔥`, `💪`, `⚡`, `👏`).
+- **REST Discovery Endpoints**:
+  - `GET /squad/rooms`: List active public squad rooms and roster telemetry.
+  - `POST /squad/rooms/create`: Create a custom squad room with specialized workout split.
+
 ---
 
 ## 🛠 Tech Stack
