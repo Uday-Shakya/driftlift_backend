@@ -1,11 +1,14 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const PORT = 8000;
+const PORT = process.env.PORT || 8000;
 const cookieParser = require('cookie-parser');
 const { attachSquadSocketServer, getRoomsList, createRoom } = require('./squadSocketServer');
 
@@ -21,7 +24,6 @@ const workoutTrackRoutes = require('./Routes/WorkoutTrack');
 const workoutRoutes = require('./Routes/WorkoutPlans');
 const reportRoutes = require('./Routes/Report'); 
 const errorHandler = require('./Middlewares/errorMiddleware');
-require('dotenv').config();
 require('./db');
 
 app.use(bodyParser.json());
