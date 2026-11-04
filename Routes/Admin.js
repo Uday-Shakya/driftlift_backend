@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Admin = require('../Models/AdminSchema'); // Import the Admin model
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const errorHandler = require('../Middlewares/errorMiddleware');
 const adminTokenHandler = require('../Middlewares/checkAdminToken');
 
