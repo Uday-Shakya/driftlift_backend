@@ -10,19 +10,19 @@ try {
   // Ignore in environments where setServers is restricted
 }
 
-const mongoUri = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/';
-const dbName = process.env.DB_NAME || 'fitnessdb';
+const mongoUri = process.env.MONGO_URL;
+const dbName = process.env.DB_NAME;
 
 if (!process.env.MONGO_URL) {
   console.warn('⚠️ WARNING: MONGO_URL not defined in .env. Falling back to mongodb://127.0.0.1:27017/');
 }
 
 mongoose.connect(mongoUri, {
-    dbName: dbName
+  dbName: dbName
 }).then(
-    () => {
-        console.log('Connected to database');
-    }
+  () => {
+    console.log('Connected to database');
+  }
 ).catch((err) => {
-    console.log('Error connecting to database: ' + err.message);
+  console.log('Error connecting to database: ' + err.message);
 });
