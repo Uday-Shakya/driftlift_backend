@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build": "echo \"No build step required for Node.js Express backend\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm install"
   },
   "author": "",
   "license": "ISC",
