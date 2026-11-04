@@ -7,6 +7,10 @@ const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 // Map<roomId, SquadRoom>
 const rooms = new Map();
 
+function createActivityId() {
+  return `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 // Helper to create or get default rooms
 function initDefaultRooms() {
   if (rooms.size === 0) {
@@ -34,7 +38,7 @@ function createRoom(id, name, split, description) {
     members: new Map(), // socket -> member info
     activities: [
       {
-        id: `act-${Date.now()}`,
+        id: createActivityId(),
         sender: 'System',
         text: 'Room opened. Connect and lift together!',
         type: 'SYSTEM',
@@ -107,10 +111,12 @@ function sendWsText(socket, text) {
   }
 }
 
-function broadcastToRoom(room, messageObj) {
+function broadcastToRoom(room, messageObj, excludeSocket = null) {
   const jsonStr = JSON.stringify(messageObj);
   for (const [sock] of room.members.entries()) {
-    sendWsText(sock, jsonStr);
+    if (sock !== excludeSocket) {
+      sendWsText(sock, jsonStr);
+    }
   }
 }
 
@@ -136,13 +142,14 @@ function startRoomTimer(room, seconds, startedByName) {
     }
   });
 
-  room.activities.push({
-    id: `act-${Date.now()}`,
+  const timerAct = {
+    id: createActivityId(),
     sender: startedByName || 'Squad',
     text: `Started ${seconds}s rest timer for the squad! ⏱️`,
     type: 'TIMER',
     timestamp: Date.now()
-  });
+  };
+  room.activities.push(timerAct);
 
   room.timer.intervalId = setInterval(() => {
     room.timer.secondsLeft -= 1;
@@ -162,16 +169,17 @@ function startRoomTimer(room, seconds, startedByName) {
         }
       });
 
-      room.activities.push({
-        id: `act-${Date.now()}`,
+      const finishAct = {
+        id: createActivityId(),
         sender: 'Timer',
         text: 'Rest interval complete! Time to crush the next set! 💪⚡',
         type: 'TIMER',
         timestamp: Date.now()
-      });
+      };
+      room.activities.push(finishAct);
       broadcastToRoom(room, {
         type: 'ACTIVITY_LOG',
-        activity: room.activities[room.activities.length - 1]
+        activity: finishAct
       });
     } else {
       broadcastToRoom(room, {
@@ -216,16 +224,17 @@ function stopRoomTimer(room, stoppedByName) {
     }
   });
 
-  room.activities.push({
-    id: `act-${Date.now()}`,
+  const stopAct = {
+    id: createActivityId(),
     sender: stoppedByName || 'Squad',
     text: 'Rest timer skipped. Ready for action! ⚡',
     type: 'TIMER',
     timestamp: Date.now()
-  });
+  };
+  room.activities.push(stopAct);
   broadcastToRoom(room, {
     type: 'ACTIVITY_LOG',
-    activity: room.activities[room.activities.length - 1]
+    activity: stopAct
   });
 }
 
@@ -234,8 +243,6 @@ function handleWsMessage(socket, room, member, data) {
     const msg = JSON.parse(data);
     switch (msg.type) {
       case 'UPDATE_STATUS': {
-        // e.g. status: "LIFTING" | "RESTING" | "HYDRATING"
-        // exercise: "Bench Press 90kg"
         member.status = msg.status || member.status;
         if (msg.exercise) member.currentExercise = msg.exercise;
         broadcastToRoom(room, {
@@ -253,7 +260,6 @@ function handleWsMessage(socket, room, member, data) {
       }
 
       case 'LOG_SET': {
-        // exercise: "Incline DB Press", reps: 10, weight: 32, unit: "kg"
         member.lastSet = {
           exercise: msg.exercise || member.currentExercise || 'Exercise',
           weight: msg.weight || 0,
@@ -264,7 +270,7 @@ function handleWsMessage(socket, room, member, data) {
         member.status = 'RESTING';
 
         const act = {
-          id: `act-${Date.now()}`,
+          id: createActivityId(),
           sender: member.name,
           text: `completed ${member.lastSet.exercise} · ${member.lastSet.weight}${member.lastSet.unit} × ${member.lastSet.reps} reps 🔥`,
           type: 'SET_LOGGED',
@@ -313,7 +319,6 @@ function handleWsMessage(socket, room, member, data) {
       }
 
       case 'HYPE_REACTION': {
-        // emoji: "🔥" | "💪" | "⚡" | "👏" | "🦾"
         const reaction = {
           id: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           senderId: member.id,
@@ -332,7 +337,7 @@ function handleWsMessage(socket, room, member, data) {
         const text = (msg.text || '').trim();
         if (!text) return;
         const act = {
-          id: `act-${Date.now()}`,
+          id: createActivityId(),
           sender: member.name,
           text: text,
           type: 'CHAT',
@@ -362,7 +367,7 @@ function attachSquadSocketServer(server) {
     // Check URL path: expects /squad-ws?roomId=xyz&name=Alex
     const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost:8000'}`);
     if (parsedUrl.pathname !== '/squad-ws') {
-      return; // let other upgrade handlers proceed or ignore
+      return;
     }
 
     const secWsKey = req.headers['sec-websocket-key'];
@@ -411,7 +416,7 @@ function attachSquadSocketServer(server) {
 
     // Announce join
     const joinAct = {
-      id: `act-${Date.now()}`,
+      id: createActivityId(),
       sender: 'Squad',
       text: `${member.name} entered the room! 💥`,
       type: 'JOIN',
@@ -429,19 +434,24 @@ function attachSquadSocketServer(server) {
       })
     );
 
-    // Broadcast updated member roster to room
-    broadcastToRoom(room, {
-      type: 'MEMBER_JOINED',
-      member: {
-        id: member.id,
-        name: member.name,
-        avatar: member.avatar,
-        currentExercise: member.currentExercise,
-        status: member.status,
-        lastSet: member.lastSet
+    // Broadcast updated member roster ONLY to other members in the room
+    // (since newly connected socket already received joinAct in formatRoomInfo)
+    broadcastToRoom(
+      room,
+      {
+        type: 'MEMBER_JOINED',
+        member: {
+          id: member.id,
+          name: member.name,
+          avatar: member.avatar,
+          currentExercise: member.currentExercise,
+          status: member.status,
+          lastSet: member.lastSet
+        },
+        activity: joinAct
       },
-      activity: joinAct
-    });
+      socket // exclude the new socket
+    );
 
     // Frame accumulation buffer
     let buffer = Buffer.alloc(0);
@@ -516,7 +526,7 @@ function attachSquadSocketServer(server) {
       if (room.members.has(socket)) {
         room.members.delete(socket);
         const leaveAct = {
-          id: `act-${Date.now()}`,
+          id: createActivityId(),
           sender: 'Squad',
           text: `${member.name} left the room.`,
           type: 'LEAVE',
@@ -551,4 +561,3 @@ module.exports = {
   getRoomsList,
   createRoom
 };
-
